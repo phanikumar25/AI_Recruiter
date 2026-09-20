@@ -5,3 +5,5 @@ profiles.json - Flexiple Engineering Challenge sample data
 __pycache__/
 *.py[cod]
 .pytest_cache/
+node_modules/
+dist/
