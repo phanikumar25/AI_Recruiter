@@ -83,6 +83,11 @@ def is_rate_limit_error(error: Exception) -> bool:
     return error.__class__.__name__ == "GoogleRateLimitError" or "429" in str(error)
 
 
+def is_request_too_large(error: Exception) -> bool:
+    message = str(error).lower()
+    return "413" in message or "tokens per minute" in message
+
+
 @router.post("")
 async def create_search(payload: SearchCreateRequest, request: Request):
     dependencies = get_dependencies(request)
@@ -101,11 +106,13 @@ async def create_search(payload: SearchCreateRequest, request: Request):
         return await response_from_run(dependencies.graph, search_id, result)
     except Exception as exc:
         logger.exception("Failed to start search %s", search_id)
-        status_code = 429 if is_rate_limit_error(exc) else 502
+        status_code = 413 if is_request_too_large(exc) else 429 if is_rate_limit_error(exc) else 502
         detail = (
-            "Gemini quota exceeded. Set GEMINI_MODEL to a model available to your API key "
+            "Groq quota exceeded. Set GROQ_MODEL to a model available to your API key "
             "or wait for the quota window to reset."
             if status_code == 429
+            else "Groq request was too large for the model token limit. Candidate scoring is batched; use openai/gpt-oss-20b and retry."
+            if status_code == 413
             else f"Unable to interpret search: {exc}"
         )
         raise HTTPException(status_code=status_code, detail=detail) from exc
@@ -138,7 +145,7 @@ async def resume_spec_review(
         return await response_from_run(dependencies.graph, search_id, result)
     except Exception as exc:
         logger.exception("Failed to resume specification review for %s", search_id)
-        status_code = 429 if is_rate_limit_error(exc) else 422
+        status_code = 413 if is_request_too_large(exc) else 429 if is_rate_limit_error(exc) else 422
         raise HTTPException(status_code=status_code, detail=f"Unable to resume specification review: {exc}") from exc
 
 
@@ -157,5 +164,5 @@ async def resume_result_review(
         return await response_from_run(dependencies.graph, search_id, result)
     except Exception as exc:
         logger.exception("Failed to process result review for %s", search_id)
-        status_code = 429 if is_rate_limit_error(exc) else 422
+        status_code = 413 if is_request_too_large(exc) else 429 if is_rate_limit_error(exc) else 422
         raise HTTPException(status_code=status_code, detail=f"Unable to process recruiter feedback: {exc}") from exc

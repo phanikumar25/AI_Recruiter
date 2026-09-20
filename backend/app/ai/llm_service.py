@@ -19,16 +19,21 @@ from app.models.search import (
 )
 
 
+SCORE_BATCH_SIZE = 3
+
+
 class LLMService:
     def __init__(self, settings: Settings):
-        if not settings.google_api_key:
-            raise RuntimeError("GOOGLE_API_KEY is required for Gemini workflow operations")
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        if not settings.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is required for Groq workflow operations")
+        from langchain_groq import ChatGroq
 
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
+        self.llm = ChatGroq(
+            model=settings.groq_model,
             temperature=settings.llm_temperature,
-            google_api_key=settings.google_api_key,
+            api_key=settings.groq_api_key,
+            max_tokens=2048,
+            reasoning_effort="low",
             max_retries=2,
         )
 
@@ -36,6 +41,7 @@ class LLMService:
         structured_llm = self.llm.with_structured_output(
             schema=SearchSpec.model_json_schema(),
             method="json_schema",
+            strict=True,
         )
         response = structured_llm.invoke([
             ("system", PARSE_SEARCH_SYSTEM_PROMPT),
@@ -50,30 +56,59 @@ class LLMService:
         candidates: list[Candidate],
     ) -> CandidateScoreBatch:
         rubric = FitRubric.model_validate(rubric)
+        all_scores = []
+        for start in range(0, len(candidates), SCORE_BATCH_SIZE):
+            batch = candidates[start : start + SCORE_BATCH_SIZE]
+            all_scores.extend(self._score_candidate_batch(filters, rubric, batch).scores)
+        return CandidateScoreBatch(scores=all_scores)
+
+    def _score_candidate_batch(
+        self,
+        filters: ObjectiveFilters,
+        rubric: FitRubric,
+        candidates: list[Candidate],
+    ) -> CandidateScoreBatch:
         structured_llm = self.llm.with_structured_output(
             schema=CandidateScoreBatch.model_json_schema(),
             method="json_schema",
+            strict=True,
         )
         response = structured_llm.invoke([
             ("system", SCORE_CANDIDATES_SYSTEM_PROMPT),
             (
                 "human",
                 SCORE_CANDIDATES_USER_PROMPT.format(
-                    filters=filters.model_dump_json(indent=2),
-                    rubric=rubric.model_dump_json(indent=2),
+                    filters=filters.model_dump_json(),
+                    rubric=rubric.model_dump_json(),
                     candidates=json.dumps(
                         [candidate.model_dump() for candidate in candidates],
-                        indent=2,
+                        separators=(",", ":"),
                     ),
+                    candidate_ids=json.dumps([candidate.id for candidate in candidates]),
                 ),
             ),
         ])
         validated = CandidateScoreBatch.model_validate(response)
         expected_ids = {candidate.id for candidate in candidates}
-        actual_ids = {score.candidate_id for score in validated.scores}
-        if actual_ids != expected_ids:
-            raise ValueError("LLM scoring response did not contain exactly the supplied candidate IDs")
-        return validated
+        scores_by_id = {
+            score.candidate_id: score
+            for score in validated.scores
+            if score.candidate_id in expected_ids
+        }
+        recovered_scores = [scores_by_id[candidate.id] for candidate in candidates if candidate.id in scores_by_id]
+        for candidate in candidates:
+            if candidate.id not in scores_by_id:
+                recovered_scores.append(
+                    {
+                        "candidate_id": candidate.id,
+                        "score": 0,
+                        "strengths": [],
+                        "concerns": ["The model did not return a valid score for this profile."],
+                        "explanation": "Scoring was unavailable for this profile. Review the source profile manually.",
+                        "evidence": [],
+                    }
+                )
+        return CandidateScoreBatch.model_validate({"scores": recovered_scores})
 
     def refine_search(
         self,
@@ -88,6 +123,7 @@ class LLMService:
         structured_llm = self.llm.with_structured_output(
             schema=RefinementResult.model_json_schema(),
             method="json_schema",
+            strict=True,
         )
         response = structured_llm.invoke([
             ("system", REFINE_SEARCH_SYSTEM_PROMPT),

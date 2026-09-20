@@ -11,7 +11,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 cp backend/.env.example .env
-# Set GOOGLE_API_KEY in .env
+# Set GROQ_API_KEY in .env
 uvicorn app.main:app --app-dir backend --reload
 ```
 
@@ -26,6 +26,7 @@ The service exposes `GET /health` and search workflow routes under `/api/searche
 - `parse_search` converts free text into a validated `SearchSpec`.
 - `apply_objective_filters` is deterministic Python logic over the supplied JSON dataset.
 - `score_candidates` receives only candidates that passed objective filters and must return evidence-backed scores.
+- Candidate scoring is split into three-profile batches with concise outputs and low reasoning effort so free-tier Groq TPM limits are not exceeded.
 - `refine_search` returns a complete replacement specification based on recruiter feedback.
 
 Prompt templates live in `app/ai/prompts.py` so they are versioned and reviewable. The frontend should render the interrupt payload rather than infer workflow state from individual fields.

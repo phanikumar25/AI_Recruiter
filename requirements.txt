@@ -3,7 +3,7 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 langchain
-langchain-google-genai
+langchain-groq>=0.3.8,<1.0
 langgraph
 python-dotenv
 pytest

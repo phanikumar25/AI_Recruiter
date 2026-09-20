@@ -1,13 +1,13 @@
 # Scoutwise — AI Recruitment Sourcing Loop
 
-Scoutwise is a focused full-stack implementation of the Flexiple Engineering Hiring Challenge. It helps a recruiter turn a free-text hiring brief into editable search filters and a fit rubric, rank matching profiles with Gemini, provide feedback, refine the search, and freeze a final shortlist.
+Scoutwise is a focused full-stack implementation of the Flexiple Engineering Hiring Challenge. It helps a recruiter turn a free-text hiring brief into editable search filters and a fit rubric, rank matching profiles with Groq-hosted models, provide feedback, refine the search, and freeze a final shortlist.
 
 ## Assignment Coverage
 
 - Free-text recruiter search interpreted into structured objective filters and a subjective fit rubric.
 - Human review before the first candidate search and after every refinement round.
 - Deterministic filtering against the supplied fictional candidate dataset.
-- Gemini scoring and ranking with explanations grounded in actual profile fields.
+- Groq-hosted model scoring and ranking with explanations grounded in actual profile fields.
 - Recruiter feedback at both candidate and overall-search level.
 - Repeated refinement loop and frozen final filters, rubric, and shortlist.
 - Loading, empty-result, error, rate-limit, and recovery states.
@@ -18,9 +18,9 @@ The application intentionally does not include login, multiple roles, cross-sess
 
 - Python 3.11 or newer
 - Node.js 20 or newer and npm
-- A Google AI Studio API key for Gemini
+- A GroqCloud API key
 
-The default model is `gemini-2.5-flash-lite`, configurable through `GEMINI_MODEL`. Free-tier availability and quotas are controlled by Google.
+The default model is `openai/gpt-oss-20b` hosted by Groq, configurable through `GROQ_MODEL`. Model availability and quotas are controlled by Groq.
 
 ## Quick Start
 
@@ -38,8 +38,8 @@ cp backend/.env.example .env
 Edit `.env` and set:
 
 ```env
-GOOGLE_API_KEY=your-google-ai-studio-key
-GEMINI_MODEL=gemini-2.5-flash-lite
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 Start FastAPI:
@@ -94,9 +94,9 @@ Set minimum experience higher than maximum experience, such as `8` and `3`. Pyda
 
 Stop FastAPI while the frontend is open and submit a search. The UI displays a recovery error while preserving the recruiter’s input.
 
-### Gemini quota failure
+### Groq quota failure
 
-If the selected Gemini model has no quota, the backend returns `429` with a clear quota message rather than hiding the failure behind a generic server error. Restore `GEMINI_MODEL=gemini-2.5-flash-lite` or use a model available to the configured API key.
+If the selected Groq model has no quota or the request exceeds its TPM limit, the backend returns a clear quota message rather than hiding the failure behind a generic server error. Use `GROQ_MODEL=openai/gpt-oss-20b`; candidate scoring is also batched into small requests and the refinement prompt uses only the visible shortlist.
 
 ## Architecture
 
@@ -104,18 +104,18 @@ The backend uses one LangGraph workflow per search session. It checkpoints using
 
 ```text
 free-text query
-  → Gemini structured search specification
+  → Groq structured search specification
   → recruiter edits/approves filters and rubric
   → deterministic local filtering
-  → Gemini candidate scoring
+  → Groq candidate scoring
   → recruiter candidate and overall feedback
-  → Gemini refinement loop
+  → Groq refinement loop
   → frozen shortlist
 ```
 
 The annotated workflow diagram is in [`docs/langgraph-architecture.md`](docs/langgraph-architecture.md). Backend prompts are kept in [`backend/app/ai/prompts.py`](backend/app/ai/prompts.py), and the graph orchestration is in [`backend/app/graph/workflow.py`](backend/app/graph/workflow.py).
 
-Objective filters are never delegated to the LLM after generation. Python applies skills, experience, location aliases such as Bangalore/Bengaluru, company type, and past-company constraints against `profiles.json - Flexiple Engineering Challenge sample data`. Gemini only interprets the query, scores candidates who pass those filters, and proposes refinements.
+Objective filters are never delegated to the LLM after generation. Python applies skills, experience, location aliases such as Bangalore/Bengaluru, company type, and past-company constraints against `profiles.json - Flexiple Engineering Challenge sample data`. The Groq-hosted model only interprets the query, scores candidates who pass those filters, and proposes refinements.
 
 ## Project Structure
 
@@ -146,7 +146,7 @@ npm run build
 
 ## Design Decisions
 
-- Gemini structured JSON Schema output keeps filters, rubrics, scores, and refinements validated.
+- Groq strict structured JSON Schema output keeps filters, rubrics, scores, and refinements validated.
 - Candidate filtering is deterministic so explanations are based on real supplied data.
 - In-memory LangGraph checkpointing is sufficient for the assignment because cross-session persistence is explicitly out of scope.
 - The frontend keeps the recruiter in control: AI suggestions are always visible and editable before execution.

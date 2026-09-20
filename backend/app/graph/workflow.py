@@ -75,7 +75,7 @@ def build_graph(llm_service: LLMService):
             rubric,
             candidates,
         )
-        ranked = sorted(scores.scores, key=lambda score: score.score, reverse=True)
+        ranked = sorted(scores.scores, key=lambda score: score.score, reverse=True)[:12]
         return {
             "ranked_results": [score.model_dump() for score in ranked],
             "stage": "review_results",

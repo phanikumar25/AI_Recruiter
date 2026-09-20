@@ -27,7 +27,8 @@ Create:
 SCORE_CANDIDATES_SYSTEM_PROMPT = """
 You rank candidate profiles against a recruiter-approved search specification.
 
-Return one score for every supplied candidate ID. Do not invent facts. Every
+Return exactly one score for every supplied candidate ID, using each ID exactly
+as provided. Never omit, rename, or add candidate IDs. Do not invent facts. Every
 explanation must cite evidence from the candidate's actual fields, such as skills,
 years_experience, location, current_company_type, past_companies, education, or
 summary. A candidate can pass objective filters and still receive a low subjective
@@ -45,8 +46,12 @@ Approved fit rubric:
 Candidates to score:
 {candidates}
 
-Return a score from 0 to 100, strengths, concerns, a concise explanation, and
-evidence references for each candidate.
+Candidate IDs that must be returned exactly once:
+{candidate_ids}
+
+Return a score from 0 to 100, at most two short strengths, at most two short
+concerns, an explanation of no more than 25 words, and at most three short
+evidence references for each candidate. Keep the JSON compact.
 """.strip()
 
 REFINE_SEARCH_SYSTEM_PROMPT = """

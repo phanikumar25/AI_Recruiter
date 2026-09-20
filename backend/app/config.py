@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,8 +12,11 @@ DEFAULT_DATASET_PATH = PROJECT_ROOT / "profiles.json - Flexiple Engineering Chal
 class Settings(BaseSettings):
     app_name: str = "AI Recruiter"
     environment: str = "development"
-    google_api_key: str | None = None
-    gemini_model: str = "gemini-2.5-flash-lite"
+    groq_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GROQ_API_KEY", "GOOGLE_API_KEY"),
+    )
+    groq_model: str = "openai/gpt-oss-20b"
     llm_temperature: float = 0.0
     dataset_path: Path = DEFAULT_DATASET_PATH
     frontend_origin: str = "http://localhost:5173"
