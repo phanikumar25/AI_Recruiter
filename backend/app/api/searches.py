@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from langgraph.types import Command
 
+from app.models.candidate import Candidate
 from app.models.search import (
     CandidateScore,
     FilterDiagnostics,
@@ -51,6 +52,10 @@ def public_state(search_id: str, values: dict) -> PublicSearchState:
         original_query=values.get("original_query", ""),
         filters=filters,
         rubric=rubric,
+        candidate_profiles=[
+            Candidate.model_validate(item)
+            for item in values.get("filtered_candidates", [])
+        ],
         results=[CandidateScore.model_validate(item) for item in values.get("ranked_results", [])],
         diagnostics=diagnostics,
         refinement_round=values.get("refinement_round", 0),

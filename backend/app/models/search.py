@@ -101,6 +101,7 @@ class PublicSearchState(BaseModel):
     original_query: str
     filters: ObjectiveFilters | None = None
     rubric: FitRubric | None = None
+    candidate_profiles: list[Candidate] = Field(default_factory=list)
     results: list[CandidateScore] = Field(default_factory=list)
     diagnostics: FilterDiagnostics | None = None
     refinement_round: int = 0
