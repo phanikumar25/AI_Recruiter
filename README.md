@@ -113,7 +113,9 @@ free-text query
   → frozen shortlist
 ```
 
-The annotated workflow diagram is in [`docs/langgraph-architecture.md`](docs/langgraph-architecture.md). Backend prompts are kept in [`backend/app/ai/prompts.py`](backend/app/ai/prompts.py), and the graph orchestration is in [`backend/app/graph/workflow.py`](backend/app/graph/workflow.py).
+The annotated system diagram is in [`docs/langgraph-architecture.md`](docs/langgraph-architecture.md), and the pure workflow-only graph is in [`docs/langgraph-pure-flow.md`](docs/langgraph-pure-flow.md). Backend prompts are kept in [`backend/app/ai/prompts.py`](backend/app/ai/prompts.py), and the graph orchestration is in [`backend/app/graph/workflow.py`](backend/app/graph/workflow.py).
+
+For a detailed backend walkthrough covering every file, graph node, prompt contract, API payload, filtering rule, and error path, see [`docs/backend-implementation.md`](docs/backend-implementation.md).
 
 Objective filters are never delegated to the LLM after generation. Python applies skills, experience, location aliases such as Bangalore/Bengaluru, company type, and past-company constraints against `profiles.json - Flexiple Engineering Challenge sample data`. The Groq-hosted model only interprets the query, scores candidates who pass those filters, and proposes refinements.
 
